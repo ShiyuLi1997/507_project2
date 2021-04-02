@@ -1,0 +1,2 @@
+language = "python3"
+run = "python Project2Winter2021/proj2_nps_test.py"
