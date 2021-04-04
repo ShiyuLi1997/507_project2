@@ -55,14 +55,14 @@ def build_state_url_dict():
         key is a state name and value is the url
         e.g. {'michigan':'https://www.nps.gov/state/mi/index.htm', ...}
     '''
-    
-
+    print("in p1")
 
     data = loads_cache("data.json")
     if "P1" in data.keys():
       print("caching")
       dic = data["P1"]
       return dic
+    
     else:
       print("fetching")
       dic = {}
@@ -77,11 +77,14 @@ def build_state_url_dict():
           # print(link)
           # print(item.text.lower())
           dic[item.text.lower()] = "https://www.nps.gov" + link
+
+      save_cache(dic,"P1")
       return dic
 
 # part 2
 def get_site_instance(site_url):
-    '''Make an instances from a national site URL.
+    '''
+    Make an instances from a national site URL.
     
     Parameters
     ----------
@@ -94,11 +97,15 @@ def get_site_instance(site_url):
         a national site instance
     '''
 
+    print("in p2")
     data = loads_cache("data.json")
-    if "P3" in data.keys() and site_url in data["P3"].keys():
+    if "P2" in data.keys() and site_url in data["P2"].keys():
+      # found what i need
       print("caching")
-      dic = data["P3"]
-      return dic[site_url]
+      NS = data["P2"][site_url]
+      res = NationalSite(data["P2"][site_url]["type"],data["P2"][site_url]["name"],data["P2"][site_url]["add"],data["P2"][site_url]["zip"],data["P2"][site_url]["pho"])
+      # no need to save to cache
+      return res
       
     else:
       print("fetching")
@@ -123,8 +130,47 @@ def get_site_instance(site_url):
       pho_link = pho_div.find_all('span')
       pho1 = pho_link[-1].text.strip()
 
+      # Not found what I need
+      NS = {"type":type1, "name":name1, "add":add1, "zip":zip1, "pho":pho1}
+      if "P2" in data.keys():
+          data["P2"][site_url] = NS
+      else:
+          data["P2"] = {site_url:NS}
+      # save to cache      
+      save_cache(data["P2"],"P2")
+
       res = NationalSite(type1, name1, add1, zip1, pho1)
       return res
+
+# helper function
+def save_cache(data,key):
+  ''' To save the current state of data into cache
+  Parameters
+    ----------
+    data: dict
+        The dictionary to save
+    key: string
+        The key where to save
+    Returns
+    -------
+    None
+  '''
+  cache = loads_cache("data.json")
+  if "P1" not in cache.keys():
+      cache["P1"] = {}
+  if "P2" not in cache.keys():
+      cache["P2"] = {}
+  if "P3" not in cache.keys():
+      cache["P3"] = {}
+      
+  if key == "P1":
+      cache["P1"] = data
+  elif key == "P2":
+      cache["P2"] = data
+  elif key == "P3":
+      cache["P3"] = data
+  # dump to cache file
+  dump_cache("data.json",cache)
 
 # helper function
 def loads_cache(fn):
@@ -142,25 +188,63 @@ def dump_cache(fn,data):
       {
         P1 : {michigan:"url",alabama:"url",etc.},
 
-        P2 : {michigan:[url1,url2,etc.],
+        P2 : {
+                site_url1: {NS},    # NS as dict
+                site_url2: {NS}
+              }
+
+        P3 : {michigan:[url1,url2,etc.],
               alabama:[url1,url2,etc.],
              },
-
-        P3 : {
-                site_url1:[
-                            site1.info(),
-                            site2.info(),
-                            etc.
-                          ],
-                site_url2:[
-                            etc.
-                          ]
-              }
       }
     '''
     with open(fn,"w") as f:
         json.dump(data, f)
     f.close()
+
+# helper func for part 3
+def get_all_urls_for_a_state(all_state_dic,state):
+    """
+    This is a helper function for part 3
+    
+    This func takes a state name, and search for 
+        all the superlinks of its National Parks
+
+    Param:  state: string
+    Return: dict()
+
+    """
+    data = loads_cache("data.json")
+    if "P3" in data.keys() and state in data["P3"].keys():
+        print("caching")
+        dic = data["P3"]
+        return dic
+    
+    else:
+        result_parks_url = all_state_dic[state]
+        html = requests.get(result_parks_url).text
+        soup = BeautifulSoup(html, 'html.parser')
+        search_div = soup.find(id = 'parkListResultsArea')
+        add_link = search_div.find_all('a')
+        res_dic = {state:[]}
+        for item in add_link:
+            link = item.get('href')
+            if link.startswith('/'):
+              res_dic[state].append("https://www.nps.gov" + link + "index.htm")
+        # store in cache
+        if "P3" in data.keys():
+            data["P3"][state] = res_dic
+            save_cache(data["P3"],"P3")
+        else:
+            
+
+        data["P3"][state] = res_dic
+        save_cache(data["P3"],"P3")
+        
+    return res_dic
+
+def print_part_three_format(data):
+    print(data)
 
 # part 3
 def get_sites_for_state(state_url):
@@ -176,39 +260,17 @@ def get_sites_for_state(state_url):
     list
         a list of national site instances
     '''
-    '''
-    # read cache if exists open cache function(create new caching dictionary) and save function(save dictionary to cache file) request with cache function(fetching(if statement))
-    data = get_cache ("cache.json")
-    # user input
-    comm = input("User input: ")
-    # check if input is in data key
-    if comm in data.keys():
-        # if comm in key
-        print("Using Cache")
-        # ......
-    else:
-        # if comm not in key
-        print("Fetching")
-        #
-    '''
-    state = input("State Name: ").lower()
-    # use part 1 -----------
+    # use part 1
     all_state_dic = build_state_url_dict()
-    # -----------------------
-    result_parks_url = all_state_dic[state]
-    # request
-    html = requests.get(result_parks_url).text
-    soup = BeautifulSoup(html, 'html.parser')
-    search_div = soup.find(id = 'parkListResultsArea')
-    add_link = search_div.find_all('a')
-    res_dic = {}
-    for item in add_link:
-        link = item.get('href')
-        if link.startswith('/'):
-          res_dic[item.text.lower()] = "https://www.nps.gov" + link + "index.htm"
-    
-    print(res_dic)
+    # user input
+    state = input("State Name: ").lower()
+    # get all the sites urls of a state
+    d = get_all_urls_for_a_state(all_state_dic,state)
+    print_part_three_format(d)
 
+
+
+# part 4
 def get_nearby_places(site_object):
     '''Obtain API data from MapQuest API.
     
